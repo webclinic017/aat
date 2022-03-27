@@ -66,8 +66,8 @@ aat/ui/assets/static/
 notes.txt
 ref
 coinbase.sh
+coinbase_sandbox.sh
 keys
-data/
 old
 
 .ipynb_checkpoints
@@ -94,3 +94,5 @@ python_junit.xml
 .vscode
 private_config
 _aat_BACKTEST*
+
+venv/

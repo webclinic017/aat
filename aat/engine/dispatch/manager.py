@@ -1,35 +1,47 @@
 import sys
 import traceback
 
-from typing import List, TYPE_CHECKING
+from typing import cast, List, TYPE_CHECKING
 
-from .order_entry import StrategyManagerOrderEntryMixin
-from .portfolio import StrategyManagerPortfolioMixin
-from .risk import StrategyManagerRiskMixin
+from .order_entry import StrategyManagerOrderEntryMixin, OrderManager
+from .periodic import PeriodicManagerMixin
+from .portfolio import StrategyManagerPortfolioMixin, PortfolioManager
+from .risk import StrategyManagerRiskMixin, RiskManager
 from .utils import StrategyManagerUtilsMixin
 
 from aat.config import TradingType
-from aat.core.handler import EventHandler
+from aat.core import Event, Error
 from aat.exchange import Exchange
+from aat.core.handler import EventHandler
 
 if TYPE_CHECKING:
+    from aat.strategy import Strategy
     from aat.engine import TradingEngine
 
 
-class StrategyManager(StrategyManagerOrderEntryMixin, StrategyManagerRiskMixin, StrategyManagerPortfolioMixin, StrategyManagerUtilsMixin, EventHandler):
-    def __init__(self,
-                 trading_engine: 'TradingEngine',
-                 trading_type: TradingType,
-                 exchanges: List[Exchange],
-                 load_accounts: bool = False):
-        '''The Manager sits between the strategies and the engine and manages state
+class StrategyManager(
+    StrategyManagerOrderEntryMixin,
+    StrategyManagerRiskMixin,
+    StrategyManagerPortfolioMixin,
+    StrategyManagerUtilsMixin,
+    PeriodicManagerMixin,
+    EventHandler,
+):
+    def __init__(
+        self,
+        trading_engine: "TradingEngine",
+        trading_type: TradingType,
+        exchanges: List[Exchange],
+        load_accounts: bool = False,
+    ) -> None:
+        """The Manager sits between the strategies and the engine and manages state
 
         Args:
             trading_engine (TradingEngine); the trading engine instance
             trading_type (TradingType); the trading type
             exchanges (List[Exchange]); a list of exchanges to dispatch to
             load_accounts (bool); load positions from accounts on startup
-        '''
+        """
 
         # store trading engine
         self._engine = trading_engine
@@ -71,80 +83,85 @@ class StrategyManager(StrategyManagerOrderEntryMixin, StrategyManagerRiskMixin, 
     # ********* #
     # Accessors #
     # ********* #
-    def riskManager(self):
+    def riskManager(self) -> RiskManager:
         return self._risk_mgr
 
-    def orderManager(self):
+    def orderManager(self) -> OrderManager:
         return self._order_mgr
 
-    def portfolioManager(self):
+    def portfolioManager(self) -> PortfolioManager:
         return self._portfolio_mgr
 
-    def strategies(self):
+    def strategies(self) -> List["Strategy"]:
         return self._engine.strategies
 
-    def exchanges(self):
+    def exchangeinstances(self) -> List[Exchange]:
         return self._engine.exchanges
 
     # ********************* #
     # EventHandler methods *
     # **********************
-    async def onTrade(self, event):
+    async def onTrade(self, event: Event) -> None:
         await self._portfolio_mgr.onTrade(event)
         await self._risk_mgr.onTrade(event)
         await self._order_mgr.onTrade(event)
 
-    async def onOpen(self, event):
+    async def onOpen(self, event: Event) -> None:
         await self._portfolio_mgr.onOpen(event)
         await self._risk_mgr.onOpen(event)
         await self._order_mgr.onOpen(event)
 
-    async def onCancel(self, event):
+    async def onCancel(self, event: Event) -> None:
         await self._portfolio_mgr.onCancel(event)
         await self._risk_mgr.onCancel(event)
         await self._order_mgr.onCancel(event)
 
-    async def onChange(self, event):
+    async def onChange(self, event: Event) -> None:
         await self._portfolio_mgr.onChange(event)
         await self._risk_mgr.onChange(event)
         await self._order_mgr.onChange(event)
 
-    async def onFill(self, event):
+    async def onFill(self, event: Event) -> None:
         await self._portfolio_mgr.onFill(event)
         await self._risk_mgr.onFill(event)
         await self._order_mgr.onFill(event)
 
-    async def onHalt(self, event):
+    async def onHalt(self, event: Event) -> None:
         await self._portfolio_mgr.onHalt(event)
         await self._risk_mgr.onHalt(event)
         await self._order_mgr.onHalt(event)
 
-    async def onContinue(self, event):
+    async def onContinue(self, event: Event) -> None:
         await self._portfolio_mgr.onContinue(event)
         await self._risk_mgr.onContinue(event)
         await self._order_mgr.onContinue(event)
 
-    async def onData(self, event):
+    async def onData(self, event: Event) -> None:
         await self._portfolio_mgr.onData(event)
         await self._risk_mgr.onData(event)
         await self._order_mgr.onData(event)
 
-    async def onError(self, event):
-        print('\n\nA Fatal Error has occurred:')
-        traceback.print_exception(type(event.target.exception), event.target.exception, event.target.exception.__traceback__)
+    async def onError(self, event: Event) -> None:
+        print("\n\nA Fatal Error has occurred:")
+        error = cast(Error, event.target)
+        traceback.print_exception(
+            type(error.exception),
+            error.exception,
+            error.exception.__traceback__,
+        )
         sys.exit(1)
 
-    async def onExit(self, event):
+    async def onExit(self, event: Event) -> None:
         await self._portfolio_mgr.onExit(event)
         await self._risk_mgr.onExit(event)
         await self._order_mgr.onExit(event)
 
-    async def onStart(self, event):
+    async def onStart(self, event: Event) -> None:
         # Initialize strategies
         self._portfolio_mgr.updateStrategies(self.strategies())
 
         # Initialize positions
-        for exchange in self.exchanges():
+        for exchange in self.exchangeinstances():
             if self._load_accounts:
                 acc = await exchange.accounts()
                 self._portfolio_mgr.updateAccount(acc)

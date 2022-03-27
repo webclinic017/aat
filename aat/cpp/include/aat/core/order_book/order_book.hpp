@@ -10,8 +10,8 @@
 #include <aat/core/order_book/price_level.hpp>
 #include <aat/core/order_book/collector.hpp>
 #include <aat/core/exchange/exchange.hpp>
-#include <aat/core/models/event.hpp>
-#include <aat/core/models/order.hpp>
+#include <aat/core/data/event.hpp>
+#include <aat/core/data/order.hpp>
 
 using namespace aat::common;
 
@@ -47,6 +47,19 @@ namespace core {
       const Instrument& instrument, const ExchangeType& exchange, std::function<void(std::shared_ptr<Event>)> callback);
 
     void setCallback(std::function<void(std::shared_ptr<Event>)> callback);
+
+    Instrument
+    getInstrument() const {
+      return instrument;
+    }
+    ExchangeType
+    getExchange() const {
+      return exchange;
+    }
+    std::function<void(std::shared_ptr<Event>)>
+    getCallback() const {
+      return callback;
+    }
 
     void reset();
 

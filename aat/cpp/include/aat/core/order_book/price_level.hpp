@@ -5,8 +5,8 @@
 #include <vector>
 
 #include <aat/core/order_book/collector.hpp>
-#include <aat/core/models/event.hpp>
-#include <aat/core/models/order.hpp>
+#include <aat/core/data/event.hpp>
+#include <aat/core/data/order.hpp>
 
 namespace aat {
 namespace core {
@@ -39,7 +39,10 @@ namespace core {
       return orders.size();
     }
 
-    std::shared_ptr<Order> operator[](int i) { return orders[i]; }
+    std::shared_ptr<Order>
+    operator[](int i) {
+      return orders[i];
+    }
     explicit operator bool() const { return orders.size() > 0; }
     using iterator = std::deque<std::shared_ptr<Order>>::iterator;
     using const_iterator = std::deque<std::shared_ptr<Order>>::const_iterator;

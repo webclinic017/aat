@@ -1,18 +1,19 @@
-from typing import Tuple
-from .models import Event, Order, Trade
+from typing import Any, Tuple
+from .data import Event, Order, Trade
 from .handler import EventHandler
 
 try:
     from perspective import Table  # type: ignore
 except ImportError:
+
     class Table(object):  # type: ignore
-        def __init__(*args, **kwargs):
+        def __init__(*args: Any, **kwargs: Any) -> None:
             pass
 
-        def update(self, *args):
+        def update(self, *args: Any) -> None:
             pass
 
-        def remove(self, *args):
+        def remove(self, *args: Any) -> None:
             pass
 
 
@@ -24,33 +25,38 @@ class TableHandler(EventHandler):
     onStart = None  # type: ignore
     onExit = None  # type: ignore
 
-    def __init__(self):
-        self._trades = Table(Trade.perspectiveSchema(), index="timestamp")
-        self._orders = Table(Order.perspectiveSchema(), index="id")
+    def __init__(self) -> None:
+        self._trades = Table(Trade.schema(), index="timestamp")
+        self._orders = Table(Order.schema(), index="id")
 
-    def installTables(self, manager) -> None:
+    def installTables(self, manager: Any) -> None:
         manager.host_table("trades", self._trades)
         manager.host_table("orders", self._orders)
 
     def tables(self) -> Tuple[Table, Table]:
         return self._trades, self._orders
 
-    def onTrade(self, event: Event):
-        '''onTrade'''
-        self._trades.update([event.target.toJson()])
+    async def onTrade(self, event: Event) -> None:
+        """onTrade"""
+        trade: Trade = event.target  # type: ignore
+        self._trades.update([trade.json()])
 
-    def onOpen(self, event: Event):
-        '''onOpen'''
-        self._orders.update([event.target.toJson()])
+    async def onOpen(self, event: Event) -> None:
+        """onOpen"""
+        order: Order = event.target  # type: ignore
+        self._orders.update([order.json()])
 
-    def onCancel(self, event: Event):
-        '''onCancel'''
-        self._orders.remove([event.target.id])
+    async def onCancel(self, event: Event) -> None:
+        """onCancel"""
+        order: Order = event.target  # type: ignore
+        self._orders.remove([order.id])
 
-    def onChange(self, event: Event):
-        '''onChange'''
-        self._orders.update([event.target.toJson()])
+    async def onChange(self, event: Event) -> None:
+        """onChange"""
+        order: Order = event.target  # type: ignore
+        self._orders.update([order.json()])
 
-    def onFill(self, event: Event):
-        '''onFill'''
-        self._orders.remove([event.target.id])
+    async def onFill(self, event: Event) -> None:
+        """onFill"""
+        order: Order = event.target  # type: ignore
+        self._orders.remove([order.id])

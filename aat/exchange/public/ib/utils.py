@@ -1,18 +1,22 @@
-from ibapi.contract import Contract, ComboLeg  # type: ignore
-from ibapi.order import Order  # type: ignore
+from typing import Tuple
 
 from aat.config import InstrumentType, OrderType
 from aat.core import Instrument
+from aat.core import Order as AATOrder
+from ibapi.contract import ComboLeg, Contract  # type: ignore
+from ibapi.order import Order  # type: ignore
 
 
-def _constructContract(instrument):
-    '''Construct an IB contract and order from an Order object'''
+def _constructContract(instrument: Instrument) -> Contract:
+    """Construct an IB contract and order from an Order object"""
     contract = Contract()
 
     if instrument.type == InstrumentType.EQUITY:
         contract.symbol = instrument.name
         contract.secType = "STK"
-        contract.currency = (instrument.currency.name if instrument.currency else '') or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
         contract.exchange = instrument.brokerExchange or "SMART"
 
     elif instrument.type == InstrumentType.BOND:
@@ -20,13 +24,17 @@ def _constructContract(instrument):
         contract.symbol = instrument.name  # cusip e.g. 912828C57
         contract.secType = "BOND"
         contract.exchange = instrument.brokerExchange or "SMART"
-        contract.currency = instrument.currency.name or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
 
     elif instrument.type == InstrumentType.OPTION:
         # contract.symbol = "GOOG"
         contract.secType = "OPT"
         contract.exchange = instrument.brokerExchange or "SMART"
-        contract.currency = (instrument.currency.name if instrument.currency else '') or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
         # contract.lastTradeDateOrContractMonth = "20170120"
         # contract.strike = 615
         # contract.right = "C"
@@ -39,7 +47,9 @@ def _constructContract(instrument):
         # contract.symbol = "ES";
         contract.secType = "FUT"
         contract.exchange = instrument.brokerExchange or "SMART"
-        contract.currency = (instrument.currency.name if instrument.currency else '') or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
         # contract.lastTradeDateOrContractMonth = "201803";
         # contract.Multiplier = "5";
 
@@ -56,7 +66,9 @@ def _constructContract(instrument):
         # contract.symbol = instrument.symbol
         contract.secType = "FOP"
         contract.exchange = instrument.brokerExchange
-        contract.currency = (instrument.currency.name if instrument.currency else '') or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
         # contract.lastTradeDateOrContractMonth = instrument.contractDate.strftime('%Y%m%d')
         # contract.strike = instrument.strike
         # contract.right = instrument.callOrPut
@@ -67,57 +79,79 @@ def _constructContract(instrument):
         contract.symbol = instrument.name  # "VINIX"
         contract.secType = "FUND"
         contract.exchange = instrument.brokerExchange or "FUNDSERV"
-        contract.currency = (instrument.currency.name if instrument.currency else '') or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
 
     elif instrument.type == InstrumentType.COMMODITY:
         contract.symbol = instrument.name  # "XAUUSD"
         contract.secType = "CMDTY"
         contract.exchange = instrument.brokerExchange or "SMART"
-        contract.currency = (instrument.currency.name if instrument.currency else '') or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
 
     elif instrument.type == InstrumentType.SPREAD:
-        if instrument.leg1 and \
-           instrument.leg1.type == InstrumentType.FUTURE and \
-           instrument.leg1.underlying and \
-           instrument.leg1.underlying.type == InstrumentType.COMMODITY and \
-           instrument.leg2 and \
-           instrument.leg2.type == InstrumentType.FUTURE and \
-           instrument.leg2.underlying and \
-           instrument.leg2.underlying.type == InstrumentType.COMMODITY and \
-           instrument.leg1.underlying != instrument.leg2.underlying:
+        if (
+            instrument.leg1
+            and instrument.leg1.type == InstrumentType.FUTURE
+            and instrument.leg1.underlying
+            and instrument.leg1.underlying.type == InstrumentType.COMMODITY
+            and instrument.leg2
+            and instrument.leg2.type == InstrumentType.FUTURE
+            and instrument.leg2.underlying
+            and instrument.leg2.underlying.type == InstrumentType.COMMODITY
+            and instrument.leg1.underlying != instrument.leg2.underlying
+        ):
             # Intercommodity futures use A.B
-            contract.symbol = '{}.{}'.format(instrument.leg1.underlying.name,
-                                             instrument.leg2.underlying.name)
+            contract.symbol = "{}.{}".format(
+                instrument.leg1.underlying.name, instrument.leg2.underlying.name
+            )
 
-        elif instrument.leg1 and instrument.leg1.underlying and \
-                instrument.leg2 and instrument.leg2.underlying and \
-                (instrument.leg1.underlying == instrument.leg2.underlying):
+        elif (
+            instrument.leg1
+            and instrument.leg1.underlying
+            and instrument.leg2
+            and instrument.leg2.underlying
+            and (instrument.leg1.underlying == instrument.leg2.underlying)
+        ):
             # most other spreads just use the underlying
             contract.symbol = instrument.leg1.underlying.name
 
-        elif instrument.leg1 and instrument.leg2 and \
-            (instrument.leg1.type == InstrumentType.EQUITY and
-             instrument.leg2.type == InstrumentType.EQUITY):
+        elif (
+            instrument.leg1
+            and instrument.leg2
+            and (
+                instrument.leg1.type == InstrumentType.EQUITY
+                and instrument.leg2.type == InstrumentType.EQUITY
+            )
+        ):
             # Stock spreads use A,B
-            contract.symbol = '{},{}'.format(instrument.leg1.name, instrument.leg2.name)
+            contract.symbol = "{},{}".format(instrument.leg1.name, instrument.leg2.name)
 
         else:
             contract.symbol = instrument.name
 
         contract.secType = "BAG"
-        contract.currency = (instrument.currency.name if instrument.currency else '') or "USD"
+        contract.currency = (
+            instrument.currency.name if instrument.currency else ""
+        ) or "USD"
         contract.exchange = instrument.brokerExchange or "SMART"
 
         leg1 = ComboLeg()
+        if not instrument.leg1:
+            raise NotImplementedError()  # malformed
         leg1.conId = instrument.leg1.brokerId
         leg1.ratio = 1  # TODO
-        leg1.action = instrument.leg1_side
+        leg1.action = instrument.leg1Side
         leg1.exchange = instrument.leg1.brokerExchange or "SMART"
 
         leg2 = ComboLeg()
+        if not instrument.leg2:
+            raise NotImplementedError()  # malformed
         leg2.conId = instrument.leg2.brokerId  # MCD STK
         leg2.ratio = 1  # TODO
-        leg2.action = instrument.leg2_side
+        leg2.action = instrument.leg2Side
         leg2.exchange = instrument.leg2.brokerExchange or "SMART"
 
         contract.comboLegs = [leg1, leg2]
@@ -133,7 +167,7 @@ def _constructContract(instrument):
     return contract
 
 
-def _constructContractAndOrder(aat_order):
+def _constructContractAndOrder(aat_order: AATOrder) -> Tuple[Contract, Order]:
     contract = _constructContract(aat_order.instrument)
     order = Order()
     order.action = aat_order.side.value
@@ -148,6 +182,9 @@ def _constructContractAndOrder(aat_order):
         order.lmtPrice = aat_order.price
 
     elif aat_order.order_type == OrderType.STOP:
+        if not aat_order.stop_target:
+            raise NotImplementedError()  # malformed
+
         if aat_order.stop_target.order_type == OrderType.MARKET:
             order.orderType = "STP"
             order.auxPrice = aat_order.price
@@ -168,7 +205,7 @@ def _constructContractAndOrder(aat_order):
     return contract, order
 
 
-def _constructInstrument(contract):
+def _constructInstrument(contract: Contract) -> Instrument:
     name = contract.localSymbol if contract.localSymbol else contract.symbol
     brokerId = str(contract.conId)
     brokerExchange = contract.exchange
@@ -202,5 +239,5 @@ def _constructInstrument(contract):
         exchanges=[],
         brokerExchange=brokerExchange,
         brokerId=brokerId,
-        currency=currency
+        currency=currency,
     )

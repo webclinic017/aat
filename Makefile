@@ -5,33 +5,6 @@ CONFIG=./config/synthetic.cfg
 run:    ## Clean and make target, run target
 	$(PYTHON) -m aat --config $(CONFIG)
 
-iex:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./config/iex.cfg
-
-iexintraday:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./config/iex_intraday.cfg
-
-iexpintraday:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./private_config/iex_intraday.cfg
-
-iexmomentum:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./config/iex_intraday_momentum.cfg
-
-iexpmomentum:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./private_config/iex_intraday_momentum.cfg
-
-iexlive:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./config/iex_live.cfg
-
-ib:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./config/ib.cfg
-
-ibpositions:    ## Clean and make target, run target
-	$(PYTHON) -m aat  --config ./config/ib_positions.cfg
-
-coinbasesandbox:    ## Clean and make target, run target
-	$(PYTHON) -m aat --config  ./config/coinbase_sandbox.cfg
-
 runcpp:  build  ## Clean and make target, run target
 	AAT_USE_CPP=1 $(PYTHON) -m aat  --config $(CONFIG)
 
@@ -71,8 +44,18 @@ testpycpp: ## Make unit tests
 testjs:  ## Make js tests
 	cd js; yarn test
 
-testruns:  ## Run a few examples as a live end-to-end test
-	$(PYTHON) -m aat.strategy.sample.readonly
+testruns:  testrunscsv testrunsiex ## Run a few examples as a live end-to-end test
+
+testrunscsv:
+	$(PYTHON) -m aat.strategy.sample.csv.readonly
+	$(PYTHON) -m aat.strategy.sample.csv.readonly_periodic
+	$(PYTHON) -m aat.strategy.sample.csv.received
+
+testrunsiex:
+	$(PYTHON) -m aat.strategy.sample.iex.readonly
+	TESTING=1 $(PYTHON) -m aat.strategy.sample.iex.buy_and_hold
+	TESTING=1 $(PYTHON) -m aat.strategy.sample.iex.momentum
+	TESTING=1 $(PYTHON) -m aat.strategy.sample.iex.golden_death
 
 lint: lintpy lintjs lintcpp  ## run all linters
 
@@ -88,7 +71,7 @@ lintcpp: ## run cpp linter
 fix: fixpy fixjs fixcpp  ## run all fixers
 
 fixpy:  ## run autopep8 fix
-	$(PYTHON) -m autopep8 --in-place -r -a -a aat/ setup.py
+	$(PYTHON) -m black aat/ setup.py
 
 fixcpp:  ## run clang-format
 	clang-format -i -style=file `find ./aat/cpp/{src,include} -name "*.*pp"`
@@ -99,22 +82,29 @@ fixjs:  ## run clang-format
 annotate: ## MyPy type annotation check
 	$(PYTHON) -m mypy aat
 
-annotate_l: ## MyPy type annotation check - count only
-	$(PYTHON) -m mypy -s aat | wc -l 
+type_ignore:  ## Count type ignores
+    grep -rin "type: ignore" ./aat | wc -l
+
+type_ignore_list:  ## List all type ignores
+    grep -rin "type: ignore" ./aat
 
 docs:  ## Build the sphinx docs
 	make -C docs html
 	open ./docs/_build/html/index.html
 
-dist:  ## dist to pypi
+dist: js  ## create dists
 	rm -rf dist build
-	$(PYTHON) setup.py sdist bdist_wheel
-	$(PYTHON) -m twine check dist/* && twine upload dist/*
+	python setup.py sdist bdist_wheel
+	python -m twine check dist/*
+
+publish: dist  ## dist to pypi and npm
+	python -m twine upload dist/* --skip-existing
+	cd js; npm publish || echo "can't publish - might already exist"
 
 clean: ## clean the repository
 	find . -name "__pycache__" | xargs rm -rf
 	find . -name "*.pyc" | xargs rm -rf
-	rm -rf .coverage coverage cover htmlcov logs build dist *.egg-info
+	rm -rf .coverage coverage cover htmlcov logs build dist *.egg-info coverage.xml .mypy_cache
 	find . -name "*.so"  | xargs rm -rf
 	make -C ./docs clean
 	rm -rf _aat_BACKTEST_*
